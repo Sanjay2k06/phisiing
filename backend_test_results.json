@@ -1,0 +1,68 @@
+{
+  "timestamp": "2026-01-02T06:44:18.948393",
+  "total_tests": 9,
+  "passed_tests": 8,
+  "success_rate": 88.88888888888889,
+  "failed_tests": [
+    {
+      "test": "Risk Scoring - Malicious Content",
+      "error": "Malicious content scored too low: 41.0"
+    }
+  ],
+  "detailed_results": [
+    {
+      "test_name": "Health Check Endpoint",
+      "success": true,
+      "details": "Status: operational",
+      "response_data": null
+    },
+    {
+      "test_name": "Analyze General Mode",
+      "success": true,
+      "details": "Risk: 27.8, Verdict: Safe",
+      "response_data": null
+    },
+    {
+      "test_name": "Analyze Email Mode",
+      "success": true,
+      "details": "Risk: 57.1, Engines: 5",
+      "response_data": null
+    },
+    {
+      "test_name": "Analyze URL Mode",
+      "success": true,
+      "details": "URL Risk: 50.0",
+      "response_data": null
+    },
+    {
+      "test_name": "Analyze SMS Mode",
+      "success": true,
+      "details": "Risk: 23.9, Behavioral: 15.0",
+      "response_data": null
+    },
+    {
+      "test_name": "Analyze WhatsApp Mode",
+      "success": true,
+      "details": "Risk: 45.6, Scam: 23.0",
+      "response_data": null
+    },
+    {
+      "test_name": "Stats Endpoint",
+      "success": true,
+      "details": "Total analyses: 10",
+      "response_data": null
+    },
+    {
+      "test_name": "Engine Integration",
+      "success": true,
+      "details": "All engines active, 3 detecting threats",
+      "response_data": null
+    },
+    {
+      "test_name": "Risk Scoring - Malicious Content",
+      "success": false,
+      "details": "Malicious content scored too low: 41.0",
+      "response_data": null
+    }
+  ]
+}
