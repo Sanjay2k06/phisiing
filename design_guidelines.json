@@ -1,0 +1,142 @@
+{
+  "typography": {
+    "headings": {
+      "font_family": "Outfit, sans-serif",
+      "weights": ["500", "700"],
+      "usage": "Main headings, section titles, hero text. Use tight tracking (-0.02em).",
+      "import_url": "https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700&family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400&display=swap"
+    },
+    "body": {
+      "font_family": "DM Sans, sans-serif",
+      "weights": ["400", "500"],
+      "usage": "Paragraphs, labels, inputs, general text."
+    },
+    "code": {
+      "font_family": "JetBrains Mono, monospace",
+      "weights": ["400"],
+      "usage": "Email headers, URLs, technical analysis data, risk scores."
+    }
+  },
+  "colors": {
+    "palette": {
+      "background": "#222831",
+      "surface": "#393E46",
+      "primary": "#DFD0B8",
+      "accent": "#948979",
+      "text_main": "#DFD0B8",
+      "text_muted": "#9CA3AF",
+      "border": "#4B5563"
+    },
+    "functional": {
+      "safe": "#4ADE80",
+      "suspicious": "#FACC15",
+      "scam": "#EF4444",
+      "neutral": "#948979"
+    },
+    "tailwind_config": {
+      "extend": {
+        "colors": {
+          "background": "#222831",
+          "foreground": "#DFD0B8",
+          "card": "#393E46",
+          "card-foreground": "#DFD0B8",
+          "popover": "#393E46",
+          "popover-foreground": "#DFD0B8",
+          "primary": "#DFD0B8",
+          "primary-foreground": "#222831",
+          "secondary": "#393E46",
+          "secondary-foreground": "#DFD0B8",
+          "muted": "#2D343F",
+          "muted-foreground": "#9CA3AF",
+          "accent": "#948979",
+          "accent-foreground": "#222831",
+          "destructive": "#EF4444",
+          "destructive-foreground": "#FFFFFF",
+          "border": "#4B5563",
+          "input": "#4B5563",
+          "ring": "#948979"
+        }
+      }
+    }
+  },
+  "layout": {
+    "grid_system": "Bento Grid (Mode A for Marketing, Mode B for Dashboard)",
+    "spacing": "Generous. Use p-8, p-12 for sections. Gap-6 or Gap-8 for grids.",
+    "container": "Max-width 1400px. Center aligned.",
+    "z_index": {
+      "background": -1,
+      "content": 10,
+      "overlay": 50,
+      "modal": 100
+    }
+  },
+  "components": {
+    "buttons": {
+      "style": "Sharp edges or small radius (4px). Magnetic hover effect.",
+      "variants": {
+        "default": "bg-[#DFD0B8] text-[#222831] hover:bg-[#CFC0A8]",
+        "outline": "border border-[#DFD0B8] text-[#DFD0B8] hover:bg-[#DFD0B8]/10",
+        "ghost": "text-[#DFD0B8] hover:bg-[#DFD0B8]/10"
+      }
+    },
+    "cards": {
+      "style": "Flat background (#393E46) with subtle border (#4B5563). No shadow by default. Hover: Border color lightens.",
+      "padding": "p-6 or p-8"
+    },
+    "inputs": {
+      "style": "bg-[#222831] border-[#4B5563] text-[#DFD0B8] focus:border-[#948979] focus:ring-1 focus:ring-[#948979]",
+      "height": "h-12 or h-14 for main inputs"
+    },
+    "analysis_result": {
+      "style": "Dashboard style. Use 'JetBrains Mono' for scores. Use progress bars for risk levels."
+    }
+  },
+  "motion": {
+    "library": "framer-motion",
+    "animations": {
+      "text_reveal": "Staggered character or word reveal for hero text.",
+      "fade_in_up": "y: 20 -> y: 0, opacity: 0 -> 1. Duration: 0.5s.",
+      "scale_in": "scale: 0.95 -> 1, opacity: 0 -> 1.",
+      "magnetic": "Button moves slightly towards cursor on hover.",
+      "loader": "Scanning line effect or decrypting text (random chars -> final text)."
+    }
+  },
+  "images": {
+    "hero_bg": "https://images.unsplash.com/photo-1614064642261-3ccbfafa481b?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3MjQyMTd8MHwxfHNlYXJjaHwxfHxjeWJlcnNlY3VyaXR5JTIwc2hpZWxkJTIwbG9jayUyMGRpZ2l0YWwlMjBwcm90ZWN0aW9ufGVufDB8fHx8MTc2NzMzNTYyOHww&ixlib=rb-4.1.0&q=85",
+    "hacker_texture": "https://images.unsplash.com/photo-1752069005653-d6ffdf06a0ae?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzF8MHwxfHNlYXJjaHwxfHxoYWNrZXIlMjBob29kaWUlMjBkYXJrJTIwY29tcHV0ZXIlMjBjb2RlJTIwcGhpc2hpbmd8ZW58MHx8fHwxNzY3MzM1NjI5fDA&ixlib=rb-4.1.0&q=85",
+    "lock_icon": "https://images.unsplash.com/photo-1631632286519-cb83e10e3d98?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3MjQyMTd8MHwxfHNlYXJjaHwzfHxjeWJlcnNlY3VyaXR5JTIwc2hpZWxkJTIwbG9jayUyMGRpZ2l0YWwlMjBwcm90ZWN0aW9ufGVufDB8fHx8MTc2NzMzNTYyOHww&ixlib=rb-4.1.0&q=85"
+  },
+  "instructions_to_main_agent": [
+    "1. UPDATE tailwind.config.js with the colors provided in 'colors.tailwind_config'.",
+    "2. IMPORT fonts in index.css using the 'import_url'.",
+    "3. CREATE a 'Layout' component that wraps the app with the dark background (#222831) and text color (#DFD0B8).",
+    "4. BUILD the 'Hero' section with a large, bold heading using 'Outfit' font. Use the 'text_reveal' animation.",
+    "5. BUILD the 'AnalysisInput' component. It should look like a high-tech scanner. Use a large textarea with a monospace font.",
+    "6. BUILD the 'ResultsDashboard' component. Use a grid layout. Show the 'Risk Score' prominently.",
+    "7. USE 'sonner' for notifications (e.g., 'Analysis complete').",
+    "8. ENSURE all interactive elements have 'data-testid'.",
+    "9. DO NOT use gradients for backgrounds. Use solid colors or subtle noise textures.",
+    "10. KEEP the design 'calm' and 'confident'. Avoid clutter."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "You tend to converge toward generic, 'on distribution' outputs. In frontend design, this creates what users call the 'AI slop' aesthetic. Avoid this: make creative, distinctive frontends that surprise and delight.",
+    "Dark colors look good when used independently without gradients. DO NOT use dark colors as gradients",
+    "Don't make generic centered layouts, simplistic gradients, and uniform styling.",
+    "Create depth through layered design elements with z-index hierarchy",
+    "Use glass-morphism effects with backdrop filters (12-24px blur)",
+    "You MUST NOT apply universal transition. Eg: transition: all. This results in breaking transforms. Always add transitions for specific interactive elements like button, input excluding transforms",
+    "You MUST NOT center align the app container, ie do not add .App { text-align: center; } in the css file. This disrupts the human natural reading flow of text",
+    "Always use modern button styles like pill-shaped, or sharp button with interaction animations & color relevant to the app style",
+    "NEVER: use AI assistant Emoji characters like 🤖🧠💭💡🔮🎯📚🎭🎬🎪🎉🎊🎁🎀🎂🍰🎈🎨🎰💰💵💳🏦💎🪙💸🤑📊📈📉💹🔢🏆🥇 etc for icons.",
+    "Every interaction needs micro-animations - hover states, transitions, parallax effects, and entrance animations. Static = dead.",
+    "Use 2-3x more spacing than feels comfortable. Cramped designs look cheap.",
+    "Subtle grain textures, noise overlays, custom cursors, selection states, and loading animations: separates good from extraordinary.",
+    "Main agent relies on these image URLs. Missing categories (especially sponsor logos) = main agent will use placeholder text which is FORBIDDEN",
+    "Prioritize using pre-existing components from src/components/ui when applicable",
+    "Create new components that match the style and conventions of existing components when needed",
+    "Examine existing components to understand the project's component patterns before creating new ones",
+    "Components MUST use named exports (export const ComponentName = ...)",
+    "Pages MUST use default exports (export default function PageName() {...})",
+    "Use 'sonner' for toasts. Sonner component are located in /app/src/components/ui/sonner.tsx"
+  ]
+}
