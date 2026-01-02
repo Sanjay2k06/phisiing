@@ -57,9 +57,9 @@ class URLEngine:
     def _extract_urls(self, content: str) -> List[str]:
         """Extract URLs from content"""
         # URL pattern
-        url_pattern = r'https?://[^\s<>"\']+'|
-        url_pattern += r'www\.[^\s<>"\']+'|
-        url_pattern += r'[a-zA-Z0-9-]+\.[a-z]{2,}(?:/[^\s<>"\']*)?' 
+        url_pattern = r'https?://[^\s<>"\']+'
+        url_pattern += r'|www\.[^\s<>"\']+'
+        url_pattern += r'|[a-zA-Z0-9-]+\.[a-z]{2,}(?:/[^\s<>"\']*)?' 
         
         urls = re.findall(url_pattern, content, re.IGNORECASE)
         return urls
