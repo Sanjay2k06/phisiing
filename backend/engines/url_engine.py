@@ -1,146 +1,151 @@
-"""URL Intelligence Engine for malicious link detection"""
+"""
+Senior URL Intelligence Engine
+Detects malicious, AI-generated, and scam URLs using
+heuristics + entropy + trust-floor logic.
+"""
+
 import re
+import math
 from typing import List, Dict
 from urllib.parse import urlparse
 
 class URLEngine:
-    """Detects malicious URLs and suspicious link patterns"""
-    
     def __init__(self):
         self.legitimate_domains = {
             'google.com', 'facebook.com', 'amazon.com', 'paypal.com',
             'microsoft.com', 'apple.com', 'netflix.com', 'linkedin.com'
         }
-        self.suspicious_tlds = ['.tk', '.ml', '.ga', '.cf', '.gq', '.xyz', '.top', '.work']
-    
+
+        self.suspicious_tlds = {
+            '.tk', '.ml', '.ga', '.cf', '.gq',
+            '.xyz', '.top', '.work', '.click', '.zip'
+        }
+
+        self.url_shorteners = {
+            'bit.ly', 'tinyurl.com', 't.co',
+            'goo.gl', 'ow.ly', 'is.gd'
+        }
+
+    # ---------------- MAIN ENTRY ----------------
     async def analyze(self, content: str, mode: str) -> Dict:
-        """Analyze URLs in content"""
         findings = []
         risk_score = 0.0
-        
-        # Extract URLs
+
         urls = self._extract_urls(content)
-        
+
+        # Trust floor: URL mode but no URL
+        if mode == "url" and not urls:
+            return self._result(
+                60,
+                ["URL mode selected but no valid URL detected"],
+                0.8
+            )
+
         if not urls:
-            if mode == 'url':
-                findings.append("No valid URL detected")
-                return {
-                    'engine_name': 'URL Intelligence',
-                    'risk_score': 0.0,
-                    'findings': findings,
-                    'confidence': 0.3
-                }
-            else:
-                findings.append("No URLs found in message")
-                return {
-                    'engine_name': 'URL Intelligence',
-                    'risk_score': 0.0,
-                    'findings': findings,
-                    'confidence': 0.5
-                }
-        
-        # Analyze each URL
-        for url in urls[:5]:  # Limit to 5 URLs
-            url_score = self._analyze_single_url(url, findings)
-            risk_score += url_score
-        
-        # Normalize score
-        risk_score = min(risk_score, 100)
-        
-        return {
-            'engine_name': 'URL Intelligence',
-            'risk_score': risk_score,
-            'findings': findings,
-            'confidence': 0.9 if len(findings) > 0 else 0.6
-        }
-    
+            return self._result(
+                0,
+                ["No URLs found"],
+                0.4
+            )
+
+        for url in urls[:5]:
+            risk_score += self._analyze_single_url(url, findings)
+
+        # 🔥 Trust Floor: ANY external unknown URL
+        if urls and risk_score < 25:
+            risk_score = 25
+            findings.append("Unverified external link (trust floor applied)")
+
+        return self._result(min(risk_score, 100), findings, 0.9)
+
+    # ---------------- URL EXTRACTION ----------------
     def _extract_urls(self, content: str) -> List[str]:
-        """Extract URLs from content"""
-        # URL pattern
-        url_pattern = r'https?://[^\s<>"\']+'
-        url_pattern += r'|www\.[^\s<>"\']+'
-        url_pattern += r'|[a-zA-Z0-9-]+\.[a-z]{2,}(?:/[^\s<>"\']*)?' 
-        
-        urls = re.findall(url_pattern, content, re.IGNORECASE)
-        return urls
-    
+        pattern = r'(https?://[^\s<>"\']+|www\.[^\s<>"\']+|[a-zA-Z0-9-]+\.[a-z]{2,})'
+        return re.findall(pattern, content.lower())
+
+    # ---------------- SINGLE URL ANALYSIS ----------------
     def _analyze_single_url(self, url: str, findings: List[str]) -> float:
-        """Analyze a single URL for threats"""
         score = 0.0
-        
-        try:
-            # Add scheme if missing
-            if not url.startswith(('http://', 'https://')):
-                url = 'http://' + url
-            
-            parsed = urlparse(url)
-            domain = parsed.netloc.lower()
-            
-            # Check for suspicious TLDs
-            for tld in self.suspicious_tlds:
-                if domain.endswith(tld):
-                    score += 20
-                    findings.append(f"Suspicious TLD detected: {tld}")
-                    break
-            
-            # Check for look-alike domains
-            lookalike_score = self._check_lookalike_domain(domain, findings)
-            score += lookalike_score
-            
-            # Check for IP address instead of domain
-            if re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}', domain):
-                score += 25
-                findings.append("IP address used instead of domain name")
-            
-            # Check for URL shorteners (potential obfuscation)
-            shorteners = ['bit.ly', 'tinyurl.com', 'goo.gl', 't.co', 'ow.ly']
-            if any(short in domain for short in shorteners):
-                score += 15
-                findings.append("URL shortener detected (potential obfuscation)")
-            
-            # Check for excessive subdomains
-            subdomain_count = domain.count('.')
-            if subdomain_count > 3:
-                score += 12
-                findings.append(f"Excessive subdomains detected ({subdomain_count})")
-            
-            # Check for suspicious characters
-            if any(char in domain for char in ['@', '-', '_']):
-                suspicious_chars = [c for c in ['@', '-', '_'] if c in domain]
-                if len(suspicious_chars) >= 2 or '@' in domain:
-                    score += 10
-                    findings.append(f"Suspicious characters in domain: {suspicious_chars}")
-        
-        except Exception as e:
-            findings.append(f"URL parsing error: {str(e)[:50]}")
-            score += 5
-        
+
+        if not url.startswith(("http://", "https://")):
+            url = "http://" + url
+
+        parsed = urlparse(url)
+        domain = parsed.netloc.lower()
+
+        # IP-based URL
+        if re.match(r'\d{1,3}(\.\d{1,3}){3}', domain):
+            score += 40
+            findings.append("IP-based URL used (high risk)")
+
+        # Suspicious TLD
+        if any(domain.endswith(tld) for tld in self.suspicious_tlds):
+            score += 30
+            findings.append("High-risk top-level domain detected")
+
+        # URL shortener
+        if domain in self.url_shorteners:
+            score += 25
+            findings.append("URL shortener used (obfuscation)")
+
+        # Look-alike domain
+        score += self._check_lookalike(domain, findings)
+
+        # Excessive subdomains
+        if domain.count('.') > 3:
+            score += 15
+            findings.append("Excessive subdomain nesting")
+
+        # Hyphen abuse
+        if domain.count('-') >= 3:
+            score += 20
+            findings.append("Machine-generated domain structure")
+
+        # Randomness / entropy
+        if self._high_entropy(domain):
+            score += 25
+            findings.append("High entropy domain (AI-generated pattern)")
+
         return score
-    
-    def _check_lookalike_domain(self, domain: str, findings: List[str]) -> float:
-        """Check for domains that mimic legitimate ones"""
-        score = 0.0
-        
-        # Common character substitutions
+
+    # ---------------- LOOK-ALIKE CHECK ----------------
+    def _check_lookalike(self, domain: str, findings: List[str]) -> float:
+        score = 0
+
         substitutions = {
-            'paypal': ['paypa1', 'paypai', 'paypa-', 'paypa11'],
-            'amazon': ['amaz0n', 'arnazon', 'amazom', 'amazon-'],
-            'google': ['gooogle', 'g00gle', 'googie', 'gogle'],
-            'microsoft': ['micros0ft', 'microsft', 'rnicrosoff'],
-            'apple': ['app1e', 'appl3', 'apple-'],
+            'paypal': ['paypa1', 'paypai', 'paypa11'],
+            'amazon': ['amaz0n', 'arnazon'],
+            'google': ['g00gle', 'gooogle'],
+            'microsoft': ['micros0ft', 'rnicrosoft'],
+            'apple': ['app1e', 'appl3']
         }
-        
+
         for legit, fakes in substitutions.items():
             if any(fake in domain for fake in fakes):
-                score += 30
-                findings.append(f"Look-alike domain detected (mimics {legit})")
-                return score
-        
-        # Check for legitimate domain with extra characters
+                findings.append(f"Look-alike domain mimicking {legit}")
+                return 35
+
         for legit in self.legitimate_domains:
-            if legit.replace('.com', '') in domain and legit not in domain:
-                score += 25
-                findings.append(f"Domain closely resembles {legit}")
-                break
-        
+            base = legit.split('.')[0]
+            if base in domain and legit not in domain:
+                findings.append(f"Domain resembles {legit}")
+                score += 30
+
         return score
+
+    # ---------------- ENTROPY CHECK ----------------
+    def _high_entropy(self, text: str) -> bool:
+        if len(text) < 10:
+            return False
+        probabilities = [text.count(c) / len(text) for c in set(text)]
+        entropy = -sum(p * math.log2(p) for p in probabilities)
+        return entropy > 4.0
+
+    # ---------------- RESULT FORMAT ----------------
+    def _result(self, score: float, findings: List[str], confidence: float):
+        return {
+            "engine_name": "URL Intelligence (Senior)",
+            "risk_score": score,
+            "findings": findings,
+            "confidence": confidence
+        }

@@ -1,8 +1,28 @@
 import { motion } from "framer-motion";
 import { Shield, AlertTriangle, XCircle, CheckCircle } from "lucide-react";
 
+const safeArray = (v) => (Array.isArray(v) ? v : []);
+const safeObject = (v) => (v && typeof v === "object" ? v : {});
+
 const ResultsDashboard = ({ result }) => {
-  const getVerdictColor = (verdict) => {
+  // -------- HARD GUARDS (CRASH PROOF) --------
+  if (!result) {
+    return (
+      <div className="p-6 bg-card border rounded text-muted-foreground">
+        No analysis result available.
+      </div>
+    );
+  }
+
+  const verdict = result.verdict ?? "Unknown";
+  const riskScore = Number(result.risk_score ?? 0);
+  const mode = result.mode ?? "general";
+  const engineResults = safeArray(result.engine_results);
+  const recommendations = safeArray(result.recommendations);
+  const summary = safeObject(result.summary);
+
+  // -------- UI HELPERS --------
+  const getVerdictColor = () => {
     if (verdict === "Safe") return "text-safe";
     if (verdict === "Suspicious") return "text-suspicious";
     if (verdict === "Scam Detected") return "text-scam";
@@ -10,7 +30,7 @@ const ResultsDashboard = ({ result }) => {
     return "text-neutral";
   };
 
-  const getVerdictBg = (verdict) => {
+  const getVerdictBg = () => {
     if (verdict === "Safe") return "bg-safe/20 border-safe/30";
     if (verdict === "Suspicious") return "bg-suspicious/20 border-suspicious/30";
     if (verdict === "Scam Detected") return "bg-scam/20 border-scam/30";
@@ -18,153 +38,124 @@ const ResultsDashboard = ({ result }) => {
     return "bg-neutral/20 border-neutral/30";
   };
 
-  const getVerdictIcon = (verdict) => {
+  const getVerdictIcon = () => {
     if (verdict === "Safe") return <CheckCircle className="w-12 h-12" />;
     if (verdict === "Suspicious") return <AlertTriangle className="w-12 h-12" />;
-    if (verdict === "Scam Detected" || verdict === "Phishing Detected") return <XCircle className="w-12 h-12" />;
+    if (verdict === "Scam Detected" || verdict === "Phishing Detected")
+      return <XCircle className="w-12 h-12" />;
     return <Shield className="w-12 h-12" />;
   };
 
-  const getRiskLevel = (score) => {
-    if (score >= 70) return "Critical";
-    if (score >= 50) return "High";
-    if (score >= 30) return "Medium";
+  const getRiskLevel = () => {
+    if (riskScore >= 70) return "Critical";
+    if (riskScore >= 50) return "High";
+    if (riskScore >= 30) return "Medium";
     return "Low";
   };
 
+  // -------- RENDER --------
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
+      transition={{ duration: 0.4 }}
       className="space-y-6"
-      data-testid="results-dashboard"
     >
-      {/* Main Verdict */}
-      <div className={`border-2 rounded-lg p-8 ${getVerdictBg(result.verdict)}`}>
-        <div className="flex items-center gap-6">
-          <div className={getVerdictColor(result.verdict)}>
-            {getVerdictIcon(result.verdict)}
-          </div>
-          <div className="flex-1">
-            <h3 className="font-heading font-bold text-2xl text-foreground mb-2" data-testid="verdict">
-              {result.verdict}
-            </h3>
-            <div className="flex items-center gap-4">
-              <div>
-                <div className="text-sm text-muted-foreground">Risk Score</div>
-                <div className={`text-3xl font-mono font-bold ${getVerdictColor(result.verdict)}`} data-testid="risk-score">
-                  {result.risk_score}/100
-                </div>
-              </div>
-              <div>
-                <div className="text-sm text-muted-foreground">Risk Level</div>
-                <div className={`text-xl font-heading font-bold ${getVerdictColor(result.verdict)}`}>
-                  {getRiskLevel(result.risk_score)}
-                </div>
-              </div>
-              <div>
-                <div className="text-sm text-muted-foreground">Mode</div>
-                <div className="text-xl font-heading font-bold text-foreground uppercase">
-                  {result.mode}
-                </div>
-              </div>
-            </div>
+      {/* Verdict */}
+      <div className={`border-2 rounded-lg p-8 ${getVerdictBg()}`}>
+        <div className="flex gap-6 items-center">
+          <div className={getVerdictColor()}>{getVerdictIcon()}</div>
+          <div>
+            <h3 className="text-2xl font-bold">{verdict}</h3>
+            <p className="text-muted-foreground">
+              Risk Score: <span className="font-mono">{riskScore}/100</span>
+            </p>
+            <p className="text-muted-foreground">
+              Risk Level: <strong>{getRiskLevel()}</strong>
+            </p>
+            <p className="text-muted-foreground">
+              Mode: <strong>{mode.toUpperCase()}</strong>
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Risk Progress Bar */}
-      <div className="bg-card border border-border rounded-lg p-6">
-        <div className="text-sm font-heading font-semibold text-foreground mb-3">Risk Assessment</div>
-        <div className="w-full h-4 bg-background rounded-full overflow-hidden">
-          <motion.div
-            initial={{ width: 0 }}
-            animate={{ width: `${result.risk_score}%` }}
-            transition={{ duration: 1, ease: "easeOut" }}
-            className={`h-full ${
-              result.risk_score >= 70 ? "bg-destructive" :
-              result.risk_score >= 50 ? "bg-scam" :
-              result.risk_score >= 30 ? "bg-suspicious" :
-              "bg-safe"
+      {/* Progress */}
+      <div className="bg-card border rounded p-5">
+        <div className="w-full h-3 bg-background rounded overflow-hidden">
+          <div
+            className={`h-full transition-all ${
+              riskScore >= 70
+                ? "bg-destructive"
+                : riskScore >= 50
+                ? "bg-scam"
+                : riskScore >= 30
+                ? "bg-suspicious"
+                : "bg-safe"
             }`}
+            style={{ width: `${riskScore}%` }}
           />
-        </div>
-        <div className="flex justify-between text-xs text-muted-foreground mt-2">
-          <span>0 - Safe</span>
-          <span>30 - Suspicious</span>
-          <span>50 - Scam</span>
-          <span>70+ - Phishing</span>
         </div>
       </div>
 
       {/* Summary */}
-      <div className="bg-card border border-border rounded-lg p-6">
-        <h4 className="font-heading font-bold text-lg text-foreground mb-3" data-testid="summary-heading">
-          Analysis Summary
-        </h4>
-        <p className="text-muted-foreground leading-relaxed" data-testid="summary-text">
-          {result.summary}
-        </p>
+      <div className="bg-card border rounded p-5 text-sm text-muted-foreground space-y-1">
+        <p><strong>Overall Intent:</strong> {summary.overall_intent ?? "N/A"}</p>
+        <p><strong>ML Probability:</strong> {summary.ml_probability ?? "N/A"}</p>
+        <p><strong>Threat Confidence:</strong> {summary.threat_confidence ?? "N/A"}</p>
+        <p><strong>Engines Used:</strong> {summary.analysis_engines_used ?? engineResults.length}</p>
+        {summary.ai_disagreement && (
+          <p className="text-yellow-500 font-semibold">
+            ⚠ AI vs AI disagreement detected
+          </p>
+        )}
       </div>
 
       {/* Engine Results */}
       <div className="space-y-4">
-        <h4 className="font-heading font-bold text-lg text-foreground" data-testid="engine-results-heading">
-          Detection Engine Results
-        </h4>
-        <div className="grid md:grid-cols-2 gap-4">
-          {result.engine_results.map((engine, index) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: index * 0.1 }}
-              className="bg-card border border-border rounded-lg p-5"
-              data-testid={`engine-result-${index}`}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <h5 className="font-heading font-semibold text-foreground">{engine.engine_name}</h5>
-                <span className={`text-lg font-mono font-bold ${
-                  engine.risk_score >= 50 ? "text-destructive" :
-                  engine.risk_score >= 30 ? "text-suspicious" :
-                  "text-safe"
-                }`}>
-                  {engine.risk_score.toFixed(1)}
-                </span>
-              </div>
-              <div className="space-y-2">
-                {engine.findings.slice(0, 3).map((finding, fIndex) => (
-                  <div key={fIndex} className="flex items-start gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-accent mt-2 flex-shrink-0" />
-                    <p className="text-sm text-muted-foreground">{finding}</p>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-3 text-xs text-muted-foreground">
-                Confidence: {(engine.confidence * 100).toFixed(0)}%
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </div>
+        <h4 className="font-bold text-lg">Detection Engine Results</h4>
 
-      {/* Recommendations */}
-      {result.recommendations && result.recommendations.length > 0 && (
-        <div className="bg-card border border-border rounded-lg p-6">
-          <h4 className="font-heading font-bold text-lg text-foreground mb-4" data-testid="recommendations-heading">
-            Recommended Actions
-          </h4>
-          <div className="space-y-3">
-            {result.recommendations.map((rec, index) => (
-              <div key={index} className="flex items-start gap-3" data-testid={`recommendation-${index}`}>
-                <div className="w-6 h-6 rounded-full bg-accent/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <span className="text-xs font-bold text-accent">{index + 1}</span>
+        {engineResults.length === 0 ? (
+          <p className="text-muted-foreground text-sm">
+            No engine details available.
+          </p>
+        ) : (
+          <div className="grid md:grid-cols-2 gap-4">
+            {engineResults.map((engine, index) => (
+              <div key={index} className="bg-card border rounded p-4">
+                <div className="flex justify-between mb-2">
+                  <span className="font-semibold">
+                    {engine.engine_name ?? "Unknown Engine"}
+                  </span>
+                  <span className="font-mono">
+                    {Number(engine.risk_score ?? 0)}
+                  </span>
                 </div>
-                <p className="text-muted-foreground">{rec}</p>
+
+                {safeArray(engine.findings).slice(0, 3).map((f, i) => (
+                  <p key={i} className="text-xs text-muted-foreground">
+                    • {f}
+                  </p>
+                ))}
+
+                <p className="text-xs mt-2 text-muted-foreground">
+                  Confidence: {Math.round((engine.confidence ?? 0) * 100)}%
+                </p>
               </div>
             ))}
           </div>
+        )}
+      </div>
+
+      {/* Recommendations */}
+      {recommendations.length > 0 && (
+        <div className="bg-card border rounded p-5">
+          <h4 className="font-bold mb-3">Recommended Actions</h4>
+          {recommendations.map((r, i) => (
+            <p key={i} className="text-sm text-muted-foreground">
+              {i + 1}. {r}
+            </p>
+          ))}
         </div>
       )}
     </motion.div>

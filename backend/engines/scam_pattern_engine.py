@@ -1,135 +1,155 @@
-"""Scam Pattern Engine for real-world fraud scenario detection"""
-import re
-from typing import List, Dict
+from typing import Dict, List
+
 
 class ScamPatternEngine:
-    """Detects common real-world scam and fraud patterns"""
-    
+    """
+    Senior Scam Pattern Engine
+    Detects real-world scam workflows using
+    stage-based and intent-aware logic.
+    """
+
     def __init__(self):
-        self.scam_patterns = {
-            'delivery_scam': {
-                'patterns': [
-                    r'\b(delivery|package|parcel|shipment)\b.*\b(pending|failed|held|waiting)\b',
-                    r'\b(courier|fedex|ups|dhl|usps)\b.*\b(confirm|verify|schedule)\b',
-                    r'\b(track|tracking)\b.*\b(number|code|link)\b',
+        self.scam_workflows = {
+            "delivery_scam": {
+                "stages": [
+                    ["delivery", "package", "parcel"],
+                    ["failed", "pending", "held"],
+                    ["confirm", "verify", "link"]
                 ],
-                'keywords': ['delivery', 'package', 'parcel', 'courier', 'fedex', 'ups'],
-                'score': 20,
-                'message': 'Fake delivery/package scam pattern detected'
+                "base_score": 30,
+                "message": "Delivery scam workflow detected"
             },
-            'otp_scam': {
-                'patterns': [
-                    r'\b(otp|one.time.password|verification.code|pin)\b',
-                    r'\bcode.*(is|:)\s*\d{4,6}\b',
-                    r'\b(enter|provide|share|send)\b.*\b(otp|code|pin)\b',
+            "otp_scam": {
+                "stages": [
+                    ["otp", "verification code", "one time password"],
+                    ["share", "enter", "send"]
                 ],
-                'keywords': ['otp', 'verification code', 'pin', 'one-time'],
-                'score': 25,
-                'message': 'OTP/credential theft scam detected'
+                "base_score": 40,
+                "message": "OTP credential theft workflow detected"
             },
-            'refund_scam': {
-                'patterns': [
-                    r'\b(refund|reimbursement|overpayment)\b.*\b(pending|process|claim)\b',
-                    r'\b(entitled|eligible|qualify)\b.*\b(refund|money|payment)\b',
-                    r'\b(refund)\b.*\b(\$|amount|usd|inr)\b',
+            "prize_scam": {
+                "stages": [
+                    ["congratulations", "winner", "won"],
+                    ["prize", "reward", "gift"],
+                    ["claim", "collect"]
                 ],
-                'keywords': ['refund', 'reimbursement', 'overpayment'],
-                'score': 22,
-                'message': 'Fake refund/reimbursement scam detected'
+                "base_score": 35,
+                "message": "Prize or lottery scam workflow detected"
             },
-            'job_fraud': {
-                'patterns': [
-                    r'\b(job|work|employment)\b.*\b(offer|opportunity|position)\b',
-                    r'\b(earn|make)\b.*\b(\$|money|cash)\b.*\b(home|online)\b',
-                    r'\b(selected|chosen|hired)\b.*\b(interview|position)\b',
+            "account_takeover": {
+                "stages": [
+                    ["account", "login", "access"],
+                    ["suspended", "locked", "restricted"],
+                    ["verify", "update", "confirm"]
                 ],
-                'keywords': ['job offer', 'work from home', 'earn money', 'employment'],
-                'score': 18,
-                'message': 'Job offer fraud pattern detected'
+                "base_score": 40,
+                "message": "Account takeover phishing workflow detected"
             },
-            'payment_trap': {
-                'patterns': [
-                    r'\b(payment|transaction)\b.*\b(failed|declined|error|issue)\b',
-                    r'\b(update|verify|confirm)\b.*\b(payment|card|billing)\b',
-                    r'\b(subscription|membership)\b.*\b(renew|expire|cancel)\b',
+            "payment_trap": {
+                "stages": [
+                    ["payment", "transaction", "billing"],
+                    ["failed", "error", "declined"],
+                    ["update", "verify"]
                 ],
-                'keywords': ['payment failed', 'card declined', 'subscription', 'billing'],
-                'score': 20,
-                'message': 'Payment failure trap scam detected'
+                "base_score": 32,
+                "message": "Payment failure trap detected"
             },
-            'prize_scam': {
-                'patterns': [
-                    r'\b(congratulations|winner|won|selected)\b',
-                    r'\b(prize|reward|gift|bonus)\b.*\b(claim|collect|receive)\b',
-                    r'\b(lottery|sweepstakes|contest)\b',
+            "job_fraud": {
+                "stages": [
+                    ["job", "work", "employment"],
+                    ["selected", "hired", "offer"],
+                    ["fee", "registration", "payment"]
                 ],
-                'keywords': ['congratulations', 'winner', 'prize', 'lottery'],
-                'score': 23,
-                'message': 'Prize/lottery scam pattern detected'
-            },
-            'account_verification': {
-                'patterns': [
-                    r'\b(verify|confirm|update)\b.*\b(account|identity|information)\b',
-                    r'\b(suspended|locked|restricted)\b.*\b(account|access)\b',
-                    r'\b(unusual|suspicious)\b.*\b(activity|login|access)\b',
-                ],
-                'keywords': ['verify account', 'account suspended', 'unusual activity'],
-                'score': 21,
-                'message': 'Account verification phishing detected'
-            },
+                "base_score": 30,
+                "message": "Job fraud workflow detected"
+            }
         }
-    
+
+        self.money_signals = [
+            "pay", "send", "transfer", "wire",
+            "$", "usd", "inr", "crypto", "bitcoin"
+        ]
+
+        self.credential_signals = [
+            "password", "otp", "pin", "cvv",
+            "card number", "aadhar", "pan"
+        ]
+
+    # ---------------- MAIN ENTRY ----------------
     async def analyze(self, content: str, mode: str) -> Dict:
-        """Analyze content for known scam patterns"""
+        text = content.lower()
         findings = []
-        risk_score = 0.0
-        detected_patterns = []
-        
-        content_lower = content.lower()
-        
-        # Check each scam pattern
-        for scam_type, scam_data in self.scam_patterns.items():
-            detected = False
-            
-            # Check regex patterns
-            for pattern in scam_data['patterns']:
-                if re.search(pattern, content_lower):
-                    detected = True
-                    break
-            
-            # Check keywords
-            if not detected:
-                keyword_matches = sum(1 for kw in scam_data['keywords'] if kw in content_lower)
-                if keyword_matches >= 2:
-                    detected = True
-            
-            if detected:
-                risk_score += scam_data['score']
-                findings.append(scam_data['message'])
-                detected_patterns.append(scam_type)
-        
-        # Multiple scam patterns = higher risk
-        if len(detected_patterns) >= 2:
-            risk_score += 15
-            findings.append(f"Multiple scam patterns detected: {', '.join(detected_patterns[:3])}")
-        
-        # Check for money requests
-        if re.search(r'\b(pay|send|transfer|wire)\b.*\b(money|cash|payment|\$|usd)\b', content_lower):
-            risk_score += 18
-            findings.append("Direct money request detected")
-        
-        # Check for personal info requests
-        personal_info = ['ssn', 'social security', 'credit card', 'card number', 'cvv', 'password', 'pin']
-        if any(info in content_lower for info in personal_info):
+        timeline = []     # ✅ STEP-3
+        risk_score = 0
+        detected_workflows = []
+
+        # 🚨 HARD PHISHING RULE
+        if (
+            ("account" in text or "profile" in text)
+            and ("suspend" in text or "restricted" in text or "locked" in text)
+            and ("verify" in text or "confirm" in text or "immediately" in text)
+        ):
+            risk_score += 45
+            findings.append(
+                "Critical phishing pattern: Account suspension threat with urgency"
+            )
+            timeline.append("Account suspension + urgency detected (+45)")
+
+        # ---- Workflow Detection ----
+        for name, data in self.scam_workflows.items():
+            if self._workflow_matched(text, data["stages"]):
+                detected_workflows.append(name)
+                risk_score += data["base_score"]
+                findings.append(data["message"])
+                timeline.append(f"{data['message']} (+{data['base_score']})")
+
+        # ---- Escalation Rules ----
+        if len(detected_workflows) >= 2:
             risk_score += 25
-            findings.append("Sensitive personal information request detected")
-        
-        # Normalize score
-        risk_score = min(risk_score, 100)
-        
+            findings.append(
+                f"Multiple scam workflows detected: {', '.join(detected_workflows)}"
+            )
+            timeline.append("Multiple scam workflows escalated (+25)")
+
+        # ---- Money Extraction ----
+        if any(sig in text for sig in self.money_signals):
+            risk_score += 25
+            findings.append("Financial extraction attempt detected")
+            timeline.append("Financial extraction signal (+25)")
+
+        # ---- Credential Theft ----
+        if any(sig in text for sig in self.credential_signals):
+            risk_score += 35
+            findings.append("Credential harvesting attempt detected")
+            timeline.append("Credential harvesting signal (+35)")
+
+        # ---- Trust Floor ----
+        if risk_score > 0 and risk_score < 30:
+            risk_score = 30
+            findings.append("Scam trust floor applied")
+            timeline.append("Trust floor applied (min 30)")
+
         return {
-            'engine_name': 'Scam Pattern Recognition',
-            'risk_score': risk_score,
-            'findings': findings,
-            'confidence': 0.9 if len(findings) > 0 else 0.4
+            "engine_name": "Scam Pattern Engine (Senior)",
+            "risk_score": min(risk_score, 100),
+            "findings": findings,
+            "confidence": 0.95 if findings else 0.4,
+            "timeline": timeline   # ✅ STEP-3
         }
+
+    # ---------------- WORKFLOW MATCH ----------------
+    def _workflow_matched(self, text: str, stages: List[List[str]]) -> bool:
+        index = 0
+        words = text.split()
+
+        for stage in stages:
+            found = False
+            for i in range(index, len(words)):
+                if any(keyword in words[i] for keyword in stage):
+                    index = i + 1
+                    found = True
+                    break
+            if not found:
+                return False
+
+        return True

@@ -1,31 +1,58 @@
-import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import HeroSection from "../components/HeroSection";
 import DetectionInterface from "../components/DetectionInterface";
 import HowItWorks from "../components/HowItWorks";
 import StatsDisplay from "../components/StatsDisplay";
+import Disclaimer from "../components/Disclaimer";
+import RefreshButton from "../components/RefreshButton";
 
 const HomePage = () => {
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-home">
       {/* Hero Section */}
-      <HeroSection />
+      <section>
+        <HeroSection />
+      </section>
 
       {/* Detection Interface */}
-      <DetectionInterface />
+      <section>
+        <DetectionInterface />
+      </section>
 
       {/* How It Works */}
-      <HowItWorks />
+      <section>
+        <HowItWorks />
+      </section>
 
       {/* Stats */}
-      <StatsDisplay />
+      <section>
+        <StatsDisplay />
+      </section>
+
+      {/* Ethical Disclaimer */}
+      <section>
+        <Disclaimer />
+      </section>
+
+      {/* Refresh Option */}
+      <section>
+        <RefreshButton />
+      </section>
 
       {/* Footer */}
-      <footer className="py-12 border-t border-border">
+      <footer className="py-12 border-t border-border mt-16">
         <div className="container mx-auto px-4 max-w-6xl">
-          <div className="text-center text-muted-foreground text-sm">
-            <p>CyberSentinel AI - Advanced Phishing Defense System</p>
-            <p className="mt-2">Powered by Multi-Engine AI Detection</p>
+          <div className="text-center text-muted-foreground text-sm space-y-2">
+            <p className="font-semibold">
+              CodeSphere – AI-Assisted Phishing & Scam Detection System
+            </p>
+            <p>
+              Multi-Engine Analysis • Behavioral Signals • Risk-Aware Intelligence
+            </p>
+            <p className="text-xs opacity-70 mt-2">
+              This system provides automated security analysis. Human verification
+              is always recommended before taking action.
+            </p>
           </div>
         </div>
       </footer>

@@ -1,181 +1,330 @@
-from fastapi import FastAPI, APIRouter, HTTPException
-from dotenv import load_dotenv
+from fastapi import FastAPI, APIRouter, HTTPException, Request
+from pydantic import BaseModel
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi.errors import RateLimitExceeded
+from fastapi.responses import JSONResponse
 from starlette.middleware.cors import CORSMiddleware
-from motor.motor_asyncio import AsyncIOMotorClient
-import os
-import logging
-from pathlib import Path
+
+import re
+import math
 from datetime import datetime, timezone
+from urllib.parse import urlparse
+import logging
 
-from models import DetectionRequest, DetectionResponse, EngineResult, AnalysisHistory
-from engines.nlp_engine import NLPEngine
-from engines.url_engine import URLEngine
-from engines.behavioral_engine import BehavioralEngine
-from engines.email_header_engine import EmailHeaderEngine
-from engines.scam_pattern_engine import ScamPatternEngine
-from engines.ensemble_scorer import EnsembleScorer
+# --------------------------------------------------
+# RATE LIMITER
+# --------------------------------------------------
+limiter = Limiter(key_func=get_remote_address)
 
-ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env')
+# --------------------------------------------------
+# APP
+# --------------------------------------------------
+app = FastAPI(
+    title="CyberSentinel AI – ENTERPRISE PHISHING DEFENSE",
+    version="FINAL-10.0"
+)
 
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+app.state.limiter = limiter
+app.add_middleware(SlowAPIMiddleware)
 
-app = FastAPI(title="CyberSentinel AI - Phishing Defense API")
-api_router = APIRouter(prefix="/api")
+api = APIRouter(prefix="/api")
 
-# Initialize detection engines
-nlp_engine = NLPEngine()
-url_engine = URLEngine()
-behavioral_engine = BehavioralEngine()
-email_header_engine = EmailHeaderEngine()
-scam_pattern_engine = ScamPatternEngine()
-ensemble_scorer = EnsembleScorer()
+# --------------------------------------------------
+# LOGGING
+# --------------------------------------------------
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("CyberSentinel")
 
-logger = logging.getLogger(__name__)
+# --------------------------------------------------
+# MODELS (FRONTEND SAFE)
+# --------------------------------------------------
+class DetectionRequest(BaseModel):
+    content: str
+    mode: str = "general"
 
-@api_router.get("/")
-async def root():
+class EngineResult(BaseModel):
+    engine_name: str
+    risk_score: float
+    findings: list
+    confidence: float
+
+class DetectionResponse(BaseModel):
+    risk_score: int
+    verdict: str
+    mode: str
+    engine_results: list
+    summary: dict
+    recommendations: list
+    timestamp: datetime
+
+# --------------------------------------------------
+# NORMALIZATION (ANTI-BYPASS)
+# --------------------------------------------------
+def normalize_text(text: str) -> str:
+    text = text.lower()
+    text = re.sub(r"\s+", " ", text)
+    text = text.replace("0", "o").replace("1", "i").replace("@", "a")
+    return text.strip()
+
+# --------------------------------------------------
+# URL EXTRACTION
+# --------------------------------------------------
+def extract_urls(text):
+    return re.findall(r"https?://[^\s]+", text)
+
+# --------------------------------------------------
+# SHANNON ENTROPY
+# --------------------------------------------------
+def shannon_entropy(s):
+    if not s:
+        return 0
+    freq = {c: s.count(c) for c in set(s)}
+    return -sum((f/len(s)) * math.log2(f/len(s)) for f in freq.values())
+
+# --------------------------------------------------
+# BRAND LIST
+# --------------------------------------------------
+BRANDS = ["amazon", "paypal", "google", "facebook", "instagram", "microsoft"]
+
+# --------------------------------------------------
+# ENGINE 1: URL INTELLIGENCE
+# --------------------------------------------------
+def url_engine(url):
+    findings = []
+    score = 0
+    parsed = urlparse(url)
+    domain = parsed.netloc
+
+    bad_tlds = [".xyz", ".tk", ".ml", ".ga", ".cf", ".top", ".click"]
+    if any(domain.endswith(tld) for tld in bad_tlds):
+        score += 40
+        findings.append(f"Suspicious TLD: {domain}")
+
+    if re.search(r"\d+\.\d+\.\d+\.\d+", domain):
+        score += 30
+        findings.append("IP-based URL detected")
+
+    if len(domain.split(".")) > 3:
+        score += 20
+        findings.append("Randomized / deep subdomain")
+
+    if shannon_entropy(parsed.path) > 3.5 and len(parsed.path) > 15:
+        score += 25
+        findings.append("Obfuscated high-entropy URL path")
+
+    if parsed.query:
+        score += 15
+        findings.append("Tracking / redirect parameters")
+
+    for brand in BRANDS:
+        if brand in domain and not domain.endswith(f"{brand}.com"):
+            score += 30
+            findings.append(f"Brand impersonation: {brand}")
+
+    return EngineResult(
+        engine_name="URL Intelligence Engine",
+        risk_score=min(score, 100),
+        findings=findings or ["URL structure appears normal"],
+        confidence=round(min(score, 100) / 100, 2)
+    )
+
+# --------------------------------------------------
+# ENGINE 2: MARKET / GIFT SCAM
+# --------------------------------------------------
+def market_scam_engine(text):
+    score = 0
+    findings = []
+
+    keywords = [
+        "gift card", "free reward", "won", "winner",
+        "claim now", "limited offer", "upi",
+        "telegram", "advance payment"
+    ]
+
+    for k in keywords:
+        if k in text:
+            score += 15
+            findings.append(f"Market scam keyword: {k}")
+
+    return EngineResult(
+        engine_name="Marketplace Scam Engine",
+        risk_score=min(score, 90),
+        findings=findings or ["No marketplace scam patterns"],
+        confidence=round(min(score, 90) / 100, 2)
+    )
+
+# --------------------------------------------------
+# ENGINE 3: SOCIAL ENGINEERING
+# --------------------------------------------------
+def social_engineering_engine(text):
+    score = 0
+    findings = []
+
+    if any(k in text for k in ["verify", "confirm", "login", "account"]):
+        score += 25
+        findings.append("Credential harvesting language")
+
+    if any(k in text for k in ["urgent", "immediately", "expires", "act now"]):
+        score += 20
+        findings.append("Urgency manipulation")
+
+    if "otp" in text:
+        score += 40
+        findings.append("OTP theft attempt")
+
+    return EngineResult(
+        engine_name="Social Engineering Engine",
+        risk_score=min(score, 95),
+        findings=findings or ["No social engineering patterns"],
+        confidence=round(min(score, 95) / 100, 2)
+    )
+
+# --------------------------------------------------
+# ENGINE 4: ADVANCE FEE / PRIZE SCAM (HARD RULE)
+# --------------------------------------------------
+def advance_fee_scam_engine(text):
+    reward = any(k in text for k in [
+        "won", "winner", "prize", "lottery", "gift", "reward"
+    ])
+
+    money = any(k in text for k in [
+        "processing fee", "small fee", "pay", "payment",
+        "bank details", "account number", "upi"
+    ])
+
+    urgency = any(k in text for k in [
+        "act now", "limited time", "expires", "immediately"
+    ])
+
+    if reward and money:
+        return EngineResult(
+            engine_name="Advance Fee Scam Engine (Hard Rule)",
+            risk_score=95,
+            findings=["Prize + payment request detected"],
+            confidence=1.0
+        )
+
+    if reward and urgency:
+        return EngineResult(
+            engine_name="Advance Fee Scam Engine (Hard Rule)",
+            risk_score=85,
+            findings=["Prize + urgency manipulation detected"],
+            confidence=0.9
+        )
+
+    return EngineResult(
+        engine_name="Advance Fee Scam Engine",
+        risk_score=0,
+        findings=["No advance-fee scam indicators"],
+        confidence=0.3
+    )
+
+# --------------------------------------------------
+# AI vs AI CONSENSUS
+# --------------------------------------------------
+def ai_consensus(results):
+    high = sum(1 for r in results if r.risk_score >= 60)
+    if high >= 2:
+        return True, 95, "Multiple engines agree on phishing"
+    return False, None, None
+
+# --------------------------------------------------
+# ANALYSIS CORE
+# --------------------------------------------------
+@api.post("/analyze", response_model=DetectionResponse)
+@limiter.limit("10/minute")
+async def analyze(request: Request, payload: DetectionRequest):
+    try:
+        text = normalize_text(payload.content)
+        urls = extract_urls(text)
+
+        engines = []
+
+        for url in urls:
+            engines.append(url_engine(url))
+
+        engines.append(market_scam_engine(text))
+        engines.append(social_engineering_engine(text))
+        engines.append(advance_fee_scam_engine(text))
+
+        max_score = max(e.risk_score for e in engines)
+
+        # Zero-trust URL floor
+        if urls and max_score < 70:
+            max_score = 70
+            engines.append(EngineResult(
+                engine_name="Zero Trust Policy",
+                risk_score=70,
+                findings=["Unknown URLs treated as high risk"],
+                confidence=1.0
+            ))
+
+        triggered, forced, reason = ai_consensus(engines)
+        if triggered:
+            max_score = forced
+            engines.append(EngineResult(
+                engine_name="AI-vs-AI Consensus",
+                risk_score=forced,
+                findings=[reason],
+                confidence=1.0
+            ))
+
+        verdict = "Phishing Detected" if max_score >= 70 else "Likely Safe"
+
+        return DetectionResponse(
+            risk_score=int(max_score),
+            verdict=verdict,
+            mode=payload.mode,
+            engine_results=[e.model_dump() for e in engines],
+            summary={
+                "overall_intent": verdict,
+                "analysis_engines_used": len(engines),
+                "ai_vs_ai": triggered
+            },
+            recommendations=[
+                "Do NOT click the link",
+                "Block sender/domain",
+                "Report as phishing",
+                "Never share OTP or credentials"
+            ] if verdict == "Phishing Detected" else ["No action required"],
+            timestamp=datetime.now(timezone.utc)
+        )
+
+    except Exception as e:
+        logger.exception("Analysis failed")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# --------------------------------------------------
+# ROOT
+# --------------------------------------------------
+@api.get("/")
+async def health():
     return {
-        "message": "CyberSentinel AI - Phishing Defense System",
-        "version": "1.0.0",
-        "status": "operational"
+        "status": "RUNNING",
+        "security_level": "ENTERPRISE+",
+        "engines": [
+            "URL Intelligence",
+            "Marketplace Scam",
+            "Social Engineering",
+            "Advance Fee Scam (Hard Rule)",
+            "AI-vs-AI Consensus"
+        ]
     }
 
-@api_router.post("/analyze", response_model=DetectionResponse)
-async def analyze_message(request: DetectionRequest):
-    """
-    Analyze message for phishing/scam patterns
-    
-    Modes:
-    - email: Full email with headers
-    - sms: SMS/text message
-    - whatsapp: WhatsApp-style message
-    - url: URL-only analysis
-    - general: General message analysis
-    """
-    try:
-        logger.info(f"Analyzing message in {request.mode} mode")
-        
-        # Run all applicable engines
-        engine_results = []
-        
-        # NLP Engine (always run)
-        nlp_result = await nlp_engine.analyze(request.content, request.mode)
-        engine_results.append(EngineResult(**nlp_result))
-        
-        # URL Engine (always run)
-        url_result = await url_engine.analyze(request.content, request.mode)
-        engine_results.append(EngineResult(**url_result))
-        
-        # Behavioral Engine (always run)
-        behavioral_result = await behavioral_engine.analyze(request.content, request.mode)
-        engine_results.append(EngineResult(**behavioral_result))
-        
-        # Email Header Engine (only for email mode)
-        if request.mode == 'email':
-            email_result = await email_header_engine.analyze(
-                request.content, 
-                request.mode, 
-                request.email_headers
-            )
-            engine_results.append(EngineResult(**email_result))
-        
-        # Scam Pattern Engine (always run)
-        scam_result = await scam_pattern_engine.analyze(request.content, request.mode)
-        engine_results.append(EngineResult(**scam_result))
-        
-        # Calculate ensemble score
-        ensemble_result = ensemble_scorer.calculate_risk_score(
-            [r.model_dump() for r in engine_results]
-        )
-        
-        # Create response
-        response = DetectionResponse(
-            risk_score=ensemble_result['risk_score'],
-            verdict=ensemble_result['verdict'],
-            mode=request.mode,
-            engine_results=engine_results,
-            summary=ensemble_result['summary'],
-            recommendations=ensemble_result['recommendations']
-        )
-        
-        # Store analysis in database (async, don't wait)
-        try:
-            content_preview = request.content[:100] + '...' if len(request.content) > 100 else request.content
-            history_doc = {
-                'content_preview': content_preview,
-                'mode': request.mode,
-                'risk_score': response.risk_score,
-                'verdict': response.verdict,
-                'timestamp': datetime.now(timezone.utc).isoformat(),
-                'engine_count': len(engine_results)
-            }
-            await db.analysis_history.insert_one(history_doc)
-        except Exception as e:
-            logger.error(f"Failed to store history: {e}")
-        
-        return response
-        
-    except Exception as e:
-        logger.error(f"Analysis error: {e}")
-        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
-
-@api_router.get("/history")
-async def get_history(limit: int = 20):
-    """Get recent analysis history"""
-    try:
-        history = await db.analysis_history.find(
-            {}, 
-            {"_id": 0}
-        ).sort("timestamp", -1).limit(limit).to_list(limit)
-        
-        return {"history": history, "count": len(history)}
-    except Exception as e:
-        logger.error(f"History retrieval error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@api_router.get("/stats")
-async def get_stats():
-    """Get detection statistics"""
-    try:
-        total = await db.analysis_history.count_documents({})
-        
-        # Count by verdict
-        phishing = await db.analysis_history.count_documents({"verdict": "Phishing Detected"})
-        scam = await db.analysis_history.count_documents({"verdict": "Scam Detected"})
-        suspicious = await db.analysis_history.count_documents({"verdict": "Suspicious"})
-        safe = await db.analysis_history.count_documents({"verdict": "Safe"})
-        
-        return {
-            "total_analyses": total,
-            "verdicts": {
-                "phishing": phishing,
-                "scam": scam,
-                "suspicious": suspicious,
-                "safe": safe
-            }
-        }
-    except Exception as e:
-        logger.error(f"Stats error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-app.include_router(api_router)
+app.include_router(api)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-
-@app.on_event("shutdown")
-async def shutdown_db_client():
-    client.close()
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request, exc):
+    return JSONResponse(
+        status_code=429,
+        content={"error": "Too many requests"}
+    )
